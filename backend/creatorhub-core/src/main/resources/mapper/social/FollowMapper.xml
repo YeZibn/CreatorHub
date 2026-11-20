@@ -13,12 +13,47 @@
     <insert id="insert">
         INSERT INTO follow (follower_id, followee_id)
         VALUES (#{followerId}, #{followeeId})
-        ON DUPLICATE KEY UPDATE created_at = created_at
     </insert>
 
     <delete id="delete">
         DELETE FROM follow WHERE <include refid="edge"/>
     </delete>
+
+    <select id="revision" resultType="_long">
+        SELECT COALESCE((SELECT revision FROM follow_list_revision
+                         WHERE owner_id = #{ownerId} AND direction = #{direction}), 0)
+    </select>
+
+    <insert id="advanceRevision">
+        INSERT INTO follow_list_revision (owner_id, direction, revision)
+        VALUES (#{ownerId}, #{direction}, 1)
+        ON DUPLICATE KEY UPDATE revision = revision + 1
+    </insert>
+
+    <select id="followingHead" resultType="com.creatorhub.core.social.entity.FollowEntry">
+        SELECT followee_id AS user_id, created_at AS followed_at
+        FROM follow
+        WHERE follower_id = #{ownerId}
+        ORDER BY created_at DESC, followee_id DESC
+        LIMIT #{size}
+    </select>
+
+    <select id="followersHead" resultType="com.creatorhub.core.social.entity.FollowEntry">
+        SELECT follower_id AS user_id, created_at AS followed_at
+        FROM follow
+        WHERE followee_id = #{ownerId}
+        ORDER BY created_at DESC, follower_id DESC
+        LIMIT #{size}
+    </select>
+
+    <select id="displayNames" resultType="com.creatorhub.core.social.entity.FollowDisplayName">
+        SELECT user_id, display_name
+        FROM user_profile
+        WHERE user_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
 
     <select id="exists" resultType="boolean">
         SELECT EXISTS (SELECT 1 FROM follow WHERE <include refid="edge"/>)

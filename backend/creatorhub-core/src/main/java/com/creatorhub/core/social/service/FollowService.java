@@ -1,10 +1,8 @@
 package com.creatorhub.core.social.service;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import com.creatorhub.core.social.entity.FollowSummary;
+import com.creatorhub.core.social.entity.FollowDirection;
 import com.creatorhub.core.social.mapper.FollowMapper;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,24 +19,34 @@ public class FollowService {
         if (!"ACTIVE".equals(follows.targetStatusForShare(followeeId))) {
             throw new TargetNotFound();
         }
-        follows.insert(followerId, followeeId);
+        try {
+            follows.insert(followerId, followeeId);
+        } catch (DuplicateKeyException sameRelationship) {
+            // The edge's composite primary key is the table's only unique constraint.
+            return;
+        }
+        advanceRevisions(followerId, followeeId);
     }
 
     @Transactional
     public void unfollow(long followerId, long followeeId) {
-        follows.delete(followerId, followeeId);
+        if (follows.delete(followerId, followeeId) == 1) {
+            advanceRevisions(followerId, followeeId);
+        }
+    }
+
+    private void advanceRevisions(long followerId, long followeeId) {
+        if (followerId < followeeId) {
+            follows.advanceRevision(followerId, FollowDirection.FOLLOWING.code());
+            follows.advanceRevision(followeeId, FollowDirection.FOLLOWERS.code());
+        } else {
+            follows.advanceRevision(followeeId, FollowDirection.FOLLOWERS.code());
+            follows.advanceRevision(followerId, FollowDirection.FOLLOWING.code());
+        }
     }
 
     public boolean isFollowing(long followerId, long followeeId) {
         return follows.exists(followerId, followeeId);
-    }
-
-    public List<FollowSummary> listFollowing(long userId, int pageSize, LocalDateTime beforeTime, Long beforeId) {
-        return follows.listFollowing(userId, pageSize, beforeTime, beforeId);
-    }
-
-    public List<FollowSummary> listFollowers(long userId, int pageSize, LocalDateTime beforeTime, Long beforeId) {
-        return follows.listFollowers(userId, pageSize, beforeTime, beforeId);
     }
 
     public static final class TargetNotFound extends RuntimeException {}

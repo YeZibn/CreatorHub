@@ -46,3 +46,9 @@
 | `403` | `CSRF_INVALID` | 写请求缺少有效 CSRF Token。此检查可能先于认证 |
 | `404` | `FOLLOW_TARGET_NOT_FOUND` | 发起关注时目标账号不存在或已停用 |
 | `503` | `SESSION_UNAVAILABLE` | 无法访问会话存储 |
+
+## 首页缓存接入
+
+已实现，缓存读取默认关闭。现有五个关系端点、参数、响应字段、错误码和游标编码继续适用。粉丝与关注列表在省略 `cursor` 时可使用[关系首页缓存](cache.md)。带游标的请求与单条关注状态读 MySQL。首页命中 Redis 时，响应仍以最后一条实际返回记录的方向、关注时间和对端 ID 生成游标。客户端继续把它作为不透明字符串使用，版本号只在服务端使用。
+
+每一页均按当前会话限定列表所有者；游标只影响读取位置。末页返回 `nextCursor: null`，空页返回 `{"items":[],"nextCursor":null}`。列表响应继续使用 `Cache-Control: no-store`。已通过会话验证时，业务 Redis 故障由社交模块处理并用 MySQL 提供结果。会话存储故障仍返回 `503 SESSION_UNAVAILABLE`。

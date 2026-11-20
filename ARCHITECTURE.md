@@ -14,13 +14,13 @@ MySQL 保存业务数据。Redis 保存登录会话，后续也承载缓存和�
 | --- | --- | --- |
 | [身份与账号](docs/design/identity/design.md) | 注册、登录、退出、修改本人昵称，提供统一用户身份 | 已实现，已通过本地双实例验收 |
 | [内容](docs/design/content/design.md) | 私有草稿、文章归属、发布与阅读 | 已实现，草稿、发布及阅读验收通过 |
-| [社交](docs/design/social/design.md) | 单向关注、关注状态、本人关注与粉丝列表 | 关系 API 已实现并通过本地验收 |
+| [社交](docs/design/social/design.md) | 单向关注、关注状态、本人关注与粉丝列表 | 关系 API 和双向首页缓存已实现，缓存读取默认关闭 |
 | Feed | 个人时间线、分发与分页 | 待细化 |
 | CDC | 将数据库变更投递给 Java 消费者 | Docker 链路已验证，消费设计待细化 |
-| 缓存 | 热点缓存重建与失效一致性 | 待细化 |
+| 缓存 | 热点缓存重建与失效一致性 | [社交列表缓存](docs/design/social/cache.md)已实现并通过本地验收 |
 | Agent | 在任务授权范围内检索和保存草稿 | 后续阶段 |
 
-身份模块提供服务端确认的 `userId`，内容和社交模块据此检查资源归属。[文章发布与按 ID 阅读](docs/design/content/design.md#文章发布与阅读)已交付。下一阶段补齐个人工作台，随后再设计发布事件和 Feed 受众规则。[社交模块的发布分发与 CDC](docs/design/social/design.md#发布分发与-cdc)
+身份模块提供服务端确认的 `userId`，内容和社交模块据此检查资源归属。[文章发布与按 ID 阅读](docs/design/content/design.md#文章发布与阅读)、个人工作台和[关系首页缓存](docs/design/social/cache.md)已交付。后续推进个人主页推荐阅读和关注 Feed。[社交模块的发布分发与 CDC](docs/design/social/design.md#发布分发与-cdc)
 
 ## 个人工作台
 

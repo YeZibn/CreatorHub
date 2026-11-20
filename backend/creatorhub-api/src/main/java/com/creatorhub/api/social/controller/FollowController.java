@@ -8,7 +8,9 @@ import java.util.regex.Pattern;
 
 import com.creatorhub.api.identity.IdentityPrincipal;
 import com.creatorhub.api.social.controller.FollowCursor.Direction;
+import com.creatorhub.core.social.entity.FollowDirection;
 import com.creatorhub.core.social.entity.FollowSummary;
+import com.creatorhub.core.social.service.FollowListService;
 import com.creatorhub.core.social.service.FollowService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.CacheControl;
@@ -27,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class FollowController {
     private static final Pattern DECIMAL_ID = Pattern.compile("[0-9]{1,19}");
     private final FollowService follows;
+    private final FollowListService lists;
 
-    public FollowController(FollowService follows) {
+    public FollowController(FollowService follows, FollowListService lists) {
         this.follows = follows;
+        this.lists = lists;
     }
 
     @PutMapping("/following/{userId}")
@@ -79,9 +83,9 @@ public class FollowController {
         FollowCursor after = cursor == null ? null : FollowCursor.decode(cursor, direction);
         LocalDateTime beforeTime = after == null ? null : after.followedAt();
         Long beforeId = after == null ? null : after.userId();
-        List<FollowSummary> rows = direction == Direction.FOLLOWING
-                ? follows.listFollowing(userId, size + 1, beforeTime, beforeId)
-                : follows.listFollowers(userId, size + 1, beforeTime, beforeId);
+        FollowDirection listDirection = direction == Direction.FOLLOWING
+                ? FollowDirection.FOLLOWING : FollowDirection.FOLLOWERS;
+        List<FollowSummary> rows = lists.list(userId, listDirection, size + 1, beforeTime, beforeId);
         List<FollowSummary> page = rows.subList(0, Math.min(size, rows.size()));
         String nextCursor = null;
         if (rows.size() > size) {

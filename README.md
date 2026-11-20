@@ -35,7 +35,7 @@ mvn -f backend/pom.xml clean package
 java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
 ```
 
-Flyway 在 API 启动时执行迁移。全新数据库依次执行 V1 至 V5。升级已有环境时，先通过上面的 Compose 命令应用 Canal 白名单，再启动含 V5 的 API。若现有本地数据库只包含已知的 `cdc_smoke_probe` 验证表且尚无 Flyway 历史，首启使用下面这条命令登记版本 0 并执行迁移，原有验证表会保留。
+Flyway 在 API 启动时执行迁移。全新数据库依次执行 V1 至 V6。升级已有环境时，先通过上面的 Compose 命令应用 Canal 白名单，再启动含 V6 的 API。若现有本地数据库只包含已知的 `cdc_smoke_probe` 验证表且尚无 Flyway 历史，首启使用下面这条命令登记版本 0 并执行迁移，原有验证表会保留。
 
 ```sh
 CREATORHUB_DB_BASELINE_ON_MIGRATE=true java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar

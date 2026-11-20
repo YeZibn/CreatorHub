@@ -9,6 +9,10 @@
     <artifactId>creatorhub-infrastructure</artifactId>
     <dependencies>
         <dependency>
+            <groupId>com.creatorhub</groupId><artifactId>creatorhub-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
     </dependencies>

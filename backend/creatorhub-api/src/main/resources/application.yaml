@@ -31,6 +31,13 @@ mybatis:
     map-underscore-to-camel-case: true
 
 creatorhub:
+  social:
+    follow-cache:
+      enabled: ${CREATORHUB_FOLLOW_CACHE_ENABLED:false}
+      host: ${CREATORHUB_FOLLOW_CACHE_HOST:${spring.data.redis.host}}
+      port: ${CREATORHUB_FOLLOW_CACHE_PORT:${spring.data.redis.port}}
+      timeout: ${CREATORHUB_FOLLOW_CACHE_TIMEOUT:100ms}
+      namespace: ${CREATORHUB_FOLLOW_CACHE_NAMESPACE:v1}
   identity:
     secure-cookie: ${CREATORHUB_SECURE_COOKIE:false}
 
