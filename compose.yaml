@@ -1,0 +1,128 @@
+name: creatorhub
+
+services:
+  mysql:
+    build: ./docker/mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_HOST: localhost
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Copy .env.example to .env}
+      MYSQL_DATABASE: creatorhub
+      MYSQL_USER: creatorhub
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?Copy .env.example to .env}
+      CANAL_DB_PASSWORD: ${CANAL_DB_PASSWORD:?Copy .env.example to .env}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql -h 127.0.0.1 -u \"$$MYSQL_USER\" \"$$MYSQL_DATABASE\" -Nse 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:8.2.11-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:4.3.2
+    restart: unless-stopped
+    environment:
+      CLUSTER_ID: 1JWwHMPvQveWmv_QhFiuGw
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: INTERNAL://:29092,CONTROLLER://:29093,HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,HOST://127.0.0.1:${KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    ports:
+      - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "kafka:29092"]
+      interval: 10s
+      timeout: 8s
+      retries: 15
+      start_period: 20s
+
+  kafka-init:
+    image: apache/kafka:4.3.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/opt/kafka/bin/kafka-topics.sh"]
+    command:
+      - --bootstrap-server
+      - kafka:29092
+      - --create
+      - --if-not-exists
+      - --topic
+      - creatorhub.cdc
+      - --partitions
+      - "1"
+      - --replication-factor
+      - "1"
+
+  canal:
+    image: canal/canal-server:v1.1.8
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      canal.destinations: creatorhub
+      canal.serverMode: kafka
+      canal.withoutNetty: "true"
+      canal.auto.scan: "false"
+      canal.file.data.dir: /home/admin/canal-server/state
+      canal.instance.master.address: mysql:3306
+      canal.instance.dbUsername: canal
+      canal.instance.dbPassword: ${CANAL_DB_PASSWORD:?Copy .env.example to .env}
+      canal.instance.filter.regex: 'creatorhub\.(content|follow|cdc_smoke_probe)'
+      # Apply this during Canal's startup scan of MySQL table metadata.
+      canal.instance.filter.black.regex: '(mysql|sys|information_schema|performance_schema)\..*'
+      canal.mq.flatMessage: "true"
+      canal.mq.topic: creatorhub.cdc
+      canal.mq.partition: "0"
+      kafka.bootstrap.servers: kafka:29092
+      kafka.acks: all
+      kafka.retries: "3"
+    volumes:
+      - canal-state:/home/admin/canal-server/state
+    healthcheck:
+      test: ["CMD", "nc", "-z", "-w", "2", "127.0.0.1", "11112"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  mysql-data:
+  redis-data:
+  kafka-data:
+  canal-state:
+
