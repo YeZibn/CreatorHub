@@ -1,5 +1,62 @@
 # CreatorHub
 
+## 本地 Web 前端
+
+先按下文启动 Java API，然后在项目根目录执行。
+
+```sh
+npm --prefix frontend ci
+npm --prefix frontend run dev
+```
+
+打开 [CreatorHub 本地前端](http://127.0.0.1:5173/)。可以注册账号，登录后查看或修改昵称，以及退出当前会话。开发服务器将 `/api` 转发到 `http://127.0.0.1:8080`，浏览器在同源下使用会话 Cookie。API 端口改动时，启动前端前可设置 `CREATORHUB_API_TARGET`。
+
+```sh
+npm --prefix frontend run build
+npm --prefix frontend run preview
+```
+
+构建产物在 `frontend/dist/`。部署静态文件时，让同一域名下的 `/api` 转发到 Java API。
+
+## 本地身份 API
+
+身份模块的接口见 [API 设计](docs/design/identity/api.md)。需要 Java 21、Maven 和下文的 Docker MySQL、Redis。从项目根目录执行。
+
+```sh
+test -f .env || cp .env.example .env
+docker compose up -d --build --wait
+export JAVA_HOME="$(/usr/libexec/java_home -v 21)"  # macOS
+set -a
+. ./.env
+set +a
+export CREATORHUB_DB_URL="jdbc:mysql://127.0.0.1:${MYSQL_PORT:-3306}/creatorhub?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
+export CREATORHUB_REDIS_PORT="${REDIS_PORT:-6379}"
+mvn -f backend/pom.xml clean package
+java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
+```
+
+Flyway 在 API 启动时执行迁移。全新数据库直接执行 V1。若现有本地数据库只包含已知的 `cdc_smoke_probe` 验证表且尚无 Flyway 历史，首启使用下面这条命令登记版本 0 并执行 V1，原有验证表会保留。
+
+```sh
+CREATORHUB_DB_BASELINE_ON_MIGRATE=true java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
+```
+
+要运行两个实例，在另一个终端加载相同的环境变量后，使用不同的端口。两个实例连接同一个 MySQL 和 Redis，并使用相同的会话命名空间。
+
+```sh
+CREATORHUB_PORT=8081 java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
+```
+
+默认绑定到 `127.0.0.1:8080`。Redis 会话闲置超时为 30 分钟，可通过 `CREATORHUB_SESSION_TIMEOUT` 调整。通过 HTTPS 部署时设置 `CREATORHUB_SECURE_COOKIE=true`。密码使用 Argon2id，参数为 19 MiB 内存、2 次迭代、并行度 1、16 字节盐及 32 字节输出。当前版本的邮箱注册用于本地演示，账号注册后直接可用。
+
+构建后可运行端到端验收。脚本创建独立的 MySQL、Redis 和两个 Java 进程，结束后清理这些测试进程和容器。Redis 故障实验只停止测试 Redis。
+
+```sh
+python3 docker/verify-identity.py
+```
+
+验收覆盖空库迁移、邮箱并发注册与事务回滚、跨实例会话与退出、会话过期、CSRF、昵称隔离、MySQL 索引和 Redis 故障响应。本次本地样本为 24 次登录、4 并发，P95 为 87.6 ms，计时从提交登录请求开始。
+
 ## 本地 Docker 环境
 
 启动 Docker Desktop，然后在项目根目录执行：

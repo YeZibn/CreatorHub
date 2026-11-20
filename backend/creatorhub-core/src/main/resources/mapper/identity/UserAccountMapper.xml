@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.creatorhub.core.identity.mapper.UserAccountMapper">
+    <select id="selectByEmail" resultType="com.creatorhub.core.identity.entity.UserAccount">
+        SELECT id, email_normalized, password_hash, status
+        FROM user_account
+        WHERE email_normalized = #{email}
+    </select>
+
+    <select id="selectEmailById" resultType="string">
+        SELECT email_normalized FROM user_account WHERE id = #{userId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_account (email_normalized, password_hash, status)
+        VALUES (#{emailNormalized}, #{passwordHash}, 'ACTIVE')
+    </insert>
+</mapper>

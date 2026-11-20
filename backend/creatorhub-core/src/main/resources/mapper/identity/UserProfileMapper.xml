@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.creatorhub.core.identity.mapper.UserProfileMapper">
+    <select id="selectByUserId" resultType="com.creatorhub.core.identity.entity.UserProfile">
+        SELECT user_id, display_name
+        FROM user_profile
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO user_profile (user_id, display_name)
+        VALUES (#{userId}, #{displayName})
+    </insert>
+
+    <update id="updateDisplayName">
+        UPDATE user_profile
+        SET display_name = #{displayName}
+        WHERE user_id = #{userId}
+    </update>
+</mapper>

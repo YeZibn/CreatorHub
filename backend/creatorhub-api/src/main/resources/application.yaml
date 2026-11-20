@@ -1,0 +1,35 @@
+server:
+  address: ${CREATORHUB_BIND_ADDRESS:127.0.0.1}
+  port: ${CREATORHUB_PORT:8080}
+
+spring:
+  config:
+    import: classpath:creatorhub-redis.yaml
+  application:
+    name: creatorhub-api
+  datasource:
+    url: ${CREATORHUB_DB_URL:jdbc:mysql://127.0.0.1:3306/creatorhub?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${CREATORHUB_DB_USER:creatorhub}
+    password: ${MYSQL_APP_PASSWORD}
+  flyway:
+    baseline-on-migrate: ${CREATORHUB_DB_BASELINE_ON_MIGRATE:false}
+    baseline-version: '0'
+    fail-on-missing-locations: true
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  session:
+    timeout: ${CREATORHUB_SESSION_TIMEOUT:30m}
+    data:
+      redis:
+        namespace: ${CREATORHUB_SESSION_NAMESPACE:creatorhub:session}
+        flush-mode: immediate
+
+mybatis:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+creatorhub:
+  identity:
+    secure-cookie: ${CREATORHUB_SECURE_COOKIE:false}
