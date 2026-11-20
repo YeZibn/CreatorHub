@@ -2,14 +2,16 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   ArrowRight, Check, CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, LogOut,
-  Mail, PenLine, UserRound,
+  BookOpen, FileText, House, Mail, PenLine, Settings, UserRound, UserRoundCheck, Users,
 } from 'lucide-vue-next'
 import { errorMessage, identity } from './identity'
 import DraftsWorkspace from './DraftsWorkspace.vue'
 import ArticleDetail from './ArticleDetail.vue'
+import WorkspaceHome from './WorkspaceHome.vue'
+import WorkspaceList from './WorkspaceList.vue'
 
 const phase = ref('loading')
-const section = ref('account')
+const section = ref('home')
 const articleId = ref(null)
 const draftId = ref(null)
 const draftsOpened = ref(false)
@@ -24,11 +26,30 @@ const profileName = ref('')
 const showPassword = ref(false)
 const error = ref('')
 const notice = ref('')
+const logoutError = ref('')
+
+const homeLinks = [
+  { id: 'drafts', label: '我的草稿箱', icon: FileText, description: '继续编辑和发布草稿' },
+  { id: 'published', label: '我发布的', icon: BookOpen, description: '阅读自己的已发布文章', path: '/me/articles', empty: '你还没有发布文章。' },
+  { id: 'following', label: '我关注的人', icon: UserRoundCheck, description: '查看你关注的创作者', path: '/me/following', empty: '你还没有关注任何人。' },
+  { id: 'followers', label: '我的粉丝', icon: Users, description: '查看关注你的读者', path: '/me/followers', empty: '暂时还没有人关注你。' },
+]
+const navigation = [
+  { id: 'home', label: '个人主页', icon: House },
+  ...homeLinks,
+  { id: 'account', label: '账号设置', icon: Settings },
+]
 
 const isRegister = computed(() => mode.value === 'register')
 const profileLength = computed(() => [...profileName.value.trim()].length)
 const profileChanged = computed(() => profileName.value.trim() !== user.value?.displayName)
 const initial = computed(() => [...(user.value?.displayName || '')][0]?.toUpperCase() || 'C')
+const activeList = computed(() => homeLinks.find((link) => link.id === section.value && link.path))
+const shortcuts = computed(() => homeLinks.map((link) => ({ ...link, href: sectionHref(link.id) })))
+
+function sectionHref(id) {
+  return id === 'drafts' && draftId.value ? '#drafts/' + draftId.value : '#' + id
+}
 
 function setUser(nextUser) {
   user.value = nextUser
@@ -45,6 +66,10 @@ function setGuest(message = '') {
   phase.value = 'guest'
   error.value = ''
   notice.value = message
+  logoutError.value = ''
+  draftId.value = null
+  draftsOpened.value = false
+  syncRoute()
 }
 
 function setDraftId(id) {
@@ -52,19 +77,10 @@ function setDraftId(id) {
   if (section.value === 'drafts') window.history.replaceState(null, '', id ? '#drafts/' + id : '#drafts')
 }
 
-function showSection(next) {
-  section.value = next
-  if (next === 'drafts') {
-    draftsOpened.value = true
-    setDraftId(draftId.value)
-  } else {
-    window.history.replaceState(null, '', window.location.pathname + window.location.search)
-  }
-}
-
 function syncRoute() {
   const article = /^#articles\/([1-9][0-9]*)$/.exec(window.location.hash)
   const draft = /^#drafts(?:\/([1-9][0-9]*))?$/.exec(window.location.hash)
+  logoutError.value = ''
   if (article) {
     articleId.value = article[1]
     section.value = 'article'
@@ -75,7 +91,7 @@ function syncRoute() {
     draftsOpened.value = true
     section.value = 'drafts'
   } else {
-    section.value = 'account'
+    section.value = navigation.find((item) => '#' + item.id === window.location.hash)?.id ?? 'home'
   }
 }
 
@@ -185,19 +201,22 @@ async function logout() {
   if (busy.value) return
   error.value = ''
   notice.value = ''
+  logoutError.value = ''
   busy.value = 'logout'
   try {
     await identity.logout()
-    showSection('account')
-    draftsOpened.value = false
-    draftId.value = null
-    setGuest('你已退出登录。')
+    finishLogout()
   } catch (failure) {
-    if (failure.status === 401) setGuest('你已退出登录。')
-    else error.value = '暂未确认退出。' + errorMessage(failure)
+    if (failure.status === 401) finishLogout()
+    else logoutError.value = '暂未确认退出。' + errorMessage(failure)
   } finally {
     busy.value = ''
   }
+}
+
+function finishLogout() {
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  setGuest('你已退出登录。')
 }
 
 syncRoute()
@@ -301,51 +320,63 @@ onUnmounted(() => window.removeEventListener('hashchange', syncRoute))
       </div>
     </main>
 
-    <nav v-if="phase === 'account'" class="workspace-nav" aria-label="创作工作台">
-      <button type="button" :aria-current="section === 'account' ? 'page' : undefined" @click="showSection('account')">账号设置</button>
-      <button type="button" :aria-current="section === 'drafts' ? 'page' : undefined" @click="showSection('drafts')">我的草稿</button>
-    </nav>
-    <DraftsWorkspace v-if="phase === 'account' && draftsOpened" v-show="section === 'drafts'"
-      :key="draftsKey" :initial-id="draftId" @opened="setDraftId" @published="showPublishedArticle"
-      @expired="setGuest('登录已过期，请重新登录。')" />
-    <ArticleDetail v-if="phase === 'account' && section === 'article'" :key="articleId" :id="articleId"
-      @expired="setGuest('登录已过期，请重新登录。')" />
-    <main v-if="phase === 'account' && section === 'account'" class="account-main" aria-labelledby="account-title">
-      <div class="account-heading">
-        <h1 id="account-title">账号设置</h1>
-        <p>查看登录邮箱，管理展示给其他创作者的昵称。</p>
+    <div v-else-if="phase === 'account'" class="workspace-shell">
+      <aside class="workspace-sidebar">
+        <nav class="workspace-nav" aria-label="个人工作台">
+          <a v-for="item in navigation" :key="item.id" :href="sectionHref(item.id)"
+            :aria-current="section === item.id ? 'page' : undefined">
+            <component :is="item.icon" :size="18" aria-hidden="true" /> <span>{{ item.label }}</span>
+          </a>
+        </nav>
+      </aside>
+      <div class="workspace-content">
+        <p v-if="logoutError" class="feedback failure" role="alert">{{ logoutError }}</p>
+        <WorkspaceHome v-if="section === 'home'" :display-name="user.displayName" :links="shortcuts" />
+        <WorkspaceList v-if="activeList" :key="activeList.id" :view="activeList" :draft-href="sectionHref('drafts')"
+          @expired="setGuest('登录已过期，请重新登录。')" />
+        <DraftsWorkspace v-if="draftsOpened" v-show="section === 'drafts'"
+          :key="draftsKey" :initial-id="draftId" @opened="setDraftId" @published="showPublishedArticle"
+          @expired="setGuest('登录已过期，请重新登录。')" />
+        <ArticleDetail v-if="section === 'article'" :key="articleId" :id="articleId"
+          @expired="setGuest('登录已过期，请重新登录。')" />
+        <main v-if="section === 'account'" class="account-main" aria-labelledby="account-title">
+          <div class="account-heading">
+            <h1 id="account-title">账号设置</h1>
+            <p>查看登录邮箱，管理展示给其他创作者的昵称。</p>
+          </div>
+          <div class="account-grid">
+            <section class="identity-card" aria-label="账号概览">
+              <div class="avatar" aria-hidden="true">{{ initial }}</div>
+              <h2>{{ user.displayName }}</h2>
+              <p>{{ user.email }}</p>
+            </section>
+            <section class="profile-card" aria-labelledby="profile-title">
+              <div class="profile-heading"><span class="profile-icon"><UserRound :size="20" aria-hidden="true" /></span><h2 id="profile-title">个人资料</h2></div>
+              <p v-if="notice" class="feedback success" role="status"><Check :size="18" aria-hidden="true" />{{ notice }}</p>
+              <p v-if="error" class="feedback failure" role="alert"><CircleAlert :size="18" aria-hidden="true" />{{ error }}</p>
+              <form class="profile-form" :aria-busy="!!busy" @submit.prevent="saveProfile">
+                <div class="field">
+                  <label for="profile-name">昵称</label>
+                  <div class="input-wrap"><input id="profile-name" v-model="profileName" name="displayName" autocomplete="nickname" aria-describedby="nickname-limit" required :disabled="!!busy" /></div>
+                  <p id="nickname-limit" class="field-hint profile-hint">用于公开展示 <span :class="{ 'over-limit': profileLength > 50 }">{{ profileLength }} / 50</span></p>
+                </div>
+                <div class="field">
+                  <label for="profile-email">登录邮箱</label>
+                  <div class="input-wrap readonly"><Mail :size="17" aria-hidden="true" /><input id="profile-email" :value="user.email" type="email" readonly /></div>
+                </div>
+                <div class="profile-actions">
+                  <button v-if="profileChanged" class="outline-button" type="button" :disabled="!!busy" @click="resetProfile">取消</button>
+                  <button class="primary-button" type="submit" :disabled="!!busy || !profileChanged || profileLength < 1 || profileLength > 50">
+                    <LoaderCircle v-if="busy === 'profile'" :size="16" class="spinner" aria-hidden="true" />
+                    {{ busy === 'profile' ? '正在保存…' : '保存修改' }}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </main>
       </div>
-      <div class="account-grid">
-        <section class="identity-card" aria-label="账号概览">
-          <div class="avatar" aria-hidden="true">{{ initial }}</div>
-          <h2>{{ user.displayName }}</h2>
-          <p>{{ user.email }}</p>
-        </section>
-        <section class="profile-card" aria-labelledby="profile-title">
-          <div class="profile-heading"><span class="profile-icon"><UserRound :size="20" aria-hidden="true" /></span><h2 id="profile-title">个人资料</h2></div>
-          <p v-if="notice" class="feedback success" role="status"><Check :size="18" aria-hidden="true" />{{ notice }}</p>
-          <p v-if="error" class="feedback failure" role="alert"><CircleAlert :size="18" aria-hidden="true" />{{ error }}</p>
-          <form class="profile-form" :aria-busy="!!busy" @submit.prevent="saveProfile">
-            <div class="field">
-              <label for="profile-name">昵称</label>
-              <div class="input-wrap"><input id="profile-name" v-model="profileName" name="displayName" autocomplete="nickname" aria-describedby="nickname-limit" required :disabled="!!busy" /></div>
-              <p id="nickname-limit" class="field-hint profile-hint">用于公开展示 <span :class="{ 'over-limit': profileLength > 50 }">{{ profileLength }} / 50</span></p>
-            </div>
-            <div class="field">
-              <label for="profile-email">登录邮箱</label>
-              <div class="input-wrap readonly"><Mail :size="17" aria-hidden="true" /><input id="profile-email" :value="user.email" type="email" readonly /></div>
-            </div>
-            <div class="profile-actions">
-              <button v-if="profileChanged" class="outline-button" type="button" :disabled="!!busy" @click="resetProfile">取消</button>
-              <button class="primary-button" type="submit" :disabled="!!busy || !profileChanged || profileLength < 1 || profileLength > 50">
-                <LoaderCircle v-if="busy === 'profile'" :size="16" class="spinner" aria-hidden="true" />
-                {{ busy === 'profile' ? '正在保存…' : '保存修改' }}
-              </button>
-            </div>
-          </form>
-        </section>
-      </div>
-    </main>
+    </div>
 
     <main v-else-if="phase !== 'account' && phase !== 'guest'" class="status-main">
       <div v-if="phase === 'loading'" class="status-card" role="status"><LoaderCircle :size="22" class="spinner" aria-hidden="true" />正在检查登录状态…</div>

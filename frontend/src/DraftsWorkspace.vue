@@ -167,7 +167,7 @@ onMounted(async () => {
 <template>
   <main class="drafts-main" aria-labelledby="drafts-title">
     <div class="drafts-heading">
-      <h1 id="drafts-title">我的草稿</h1>
+      <h1 id="drafts-title">我的草稿箱</h1>
       <button class="primary-button" type="button" :disabled="!!busy" @click="newDraft">
         <Plus :size="17" aria-hidden="true" />新建草稿
       </button>
