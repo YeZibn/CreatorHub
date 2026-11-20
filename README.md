@@ -35,7 +35,7 @@ mvn -f backend/pom.xml clean package
 java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
 ```
 
-Flyway 在 API 启动时执行迁移。全新数据库依次执行 V1 和 V2。升级已有环境时，先通过上面的 Compose 命令应用 Canal 白名单，再启动含 V2 的 API。若现有本地数据库只包含已知的 `cdc_smoke_probe` 验证表且尚无 Flyway 历史，首启使用下面这条命令登记版本 0 并执行迁移，原有验证表会保留。
+Flyway 在 API 启动时执行迁移。全新数据库依次执行 V1、V2 和 V3。升级已有环境时，先通过上面的 Compose 命令应用 Canal 白名单，再启动含 V3 的 API。若现有本地数据库只包含已知的 `cdc_smoke_probe` 验证表且尚无 Flyway 历史，首启使用下面这条命令登记版本 0 并执行迁移，原有验证表会保留。
 
 ```sh
 CREATORHUB_DB_BASELINE_ON_MIGRATE=true java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
@@ -87,8 +87,7 @@ Java 连接 MySQL 时使用 `creatorhub` 应用账号和 `.env` 中的
 Canal 密码支持字母、数字、下划线及连字符。
 
 当前 CDC 使用单分区原始变更 Topic，消息格式为 Canal Flat JSON。Canal
-白名单包含 `creatorhub.follow` 和验证用表
-`creatorhub.cdc_smoke_probe`。业务表名、Topic 路由和分区规则随模块设计确认。
+白名单仅包含验证用表 `creatorhub.cdc_smoke_probe`。私有草稿和关注关系保存在 MySQL，业务表的采集范围随分发设计确认。
 Kafka 使用单节点及单副本，MySQL Binlog 保留七天。
 
 MySQL、Redis、Kafka 和 Canal 位点各使用命名卷。MySQL 初始化账号的脚本

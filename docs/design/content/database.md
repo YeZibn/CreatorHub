@@ -4,7 +4,7 @@
 
 ## 数据归属与字段
 
-计划通过 Flyway V2 在 `creatorhub-core/src/main/resources/db/migration/` 创建 MySQL InnoDB 表 `content`，字符集为 `utf8mb4`。内容模块拥有此表，作者外键指向[身份模块的账号表](../identity/database.md#数据归属与关系)。
+Flyway V2 创建 MySQL InnoDB 表 `content`，字符集为 `utf8mb4`。内容模块拥有此表，作者外键指向[身份模块的账号表](../identity/database.md#数据归属与关系)。
 
 | 字段 | 类型和约束 | 用途 |
 | --- | --- | --- |
@@ -58,4 +58,4 @@ WHERE id = ?
 
 先按[内容模块的 CDC 要求](design.md#作者隔离与-cdc)应用并确认白名单，再在已完成身份迁移的数据库上验证 V2。验收覆盖默认状态和版本、外键拒绝不存在的作者、毫秒精度和联合索引。
 
-Git 回退只影响仓库文件。本地数据库若已应用原 V2，`content` 表和 Flyway 历史可能仍在。用空库验证 V1 → V2，或在已停在 V1 的测试库中验证增量迁移。复用曾执行过 V2 的库时，先核对已应用的版本及校验和。
+用空库验证完整迁移链，或在已停在 V1 的测试库中验证 V2 增量迁移。复用已有数据库时，以 Flyway 已记录的版本及校验和为准。

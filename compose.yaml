@@ -102,7 +102,7 @@ services:
       canal.instance.master.address: mysql:3306
       canal.instance.dbUsername: canal
       canal.instance.dbPassword: ${CANAL_DB_PASSWORD:?Copy .env.example to .env}
-      canal.instance.filter.regex: 'creatorhub\.(follow|cdc_smoke_probe)'
+      canal.instance.filter.regex: 'creatorhub\.cdc_smoke_probe'
       # Apply this during Canal's startup scan of MySQL table metadata.
       canal.instance.filter.black.regex: '(mysql|sys|information_schema|performance_schema)\..*'
       canal.mq.flatMessage: "true"
