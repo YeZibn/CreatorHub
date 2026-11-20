@@ -9,7 +9,7 @@ npm --prefix frontend ci
 npm --prefix frontend run dev
 ```
 
-打开 [CreatorHub 本地前端](http://127.0.0.1:5173/)。可以注册账号，登录后查看或修改昵称，以及退出当前会话。开发服务器将 `/api` 转发到 `http://127.0.0.1:8080`，浏览器在同源下使用会话 Cookie。API 端口改动时，启动前端前可设置 `CREATORHUB_API_TARGET`。
+打开 [CreatorHub 本地前端](http://127.0.0.1:5173/)。注册并登录后，可以在「我的草稿」新建、查看和手动保存 Markdown 草稿，也可以在「账号设置」修改昵称。开发服务器将 `/api` 转发到 `http://127.0.0.1:8080`，浏览器在同源下使用会话 Cookie。API 端口改动时，启动前端前可设置 `CREATORHUB_API_TARGET`。
 
 ```sh
 npm --prefix frontend run build
@@ -35,7 +35,7 @@ mvn -f backend/pom.xml clean package
 java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
 ```
 
-Flyway 在 API 启动时执行迁移。全新数据库直接执行 V1。若现有本地数据库只包含已知的 `cdc_smoke_probe` 验证表且尚无 Flyway 历史，首启使用下面这条命令登记版本 0 并执行 V1，原有验证表会保留。
+Flyway 在 API 启动时执行迁移。全新数据库依次执行 V1 和 V2。升级已有环境时，先通过上面的 Compose 命令应用 Canal 白名单，再启动含 V2 的 API。若现有本地数据库只包含已知的 `cdc_smoke_probe` 验证表且尚无 Flyway 历史，首启使用下面这条命令登记版本 0 并执行迁移，原有验证表会保留。
 
 ```sh
 CREATORHUB_DB_BASELINE_ON_MIGRATE=true java -jar backend/creatorhub-api/target/creatorhub-api-0.1.0-SNAPSHOT.jar
@@ -87,7 +87,7 @@ Java 连接 MySQL 时使用 `creatorhub` 应用账号和 `.env` 中的
 Canal 密码支持字母、数字、下划线及连字符。
 
 当前 CDC 使用单分区原始变更 Topic，消息格式为 Canal Flat JSON。Canal
-白名单包含 `creatorhub.content`、`creatorhub.follow` 和验证用表
+白名单包含 `creatorhub.follow` 和验证用表
 `creatorhub.cdc_smoke_probe`。业务表名、Topic 路由和分区规则随模块设计确认。
 Kafka 使用单节点及单副本，MySQL Binlog 保留七天。
 

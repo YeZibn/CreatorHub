@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication(scanBasePackages = {"com.creatorhub.api", "com.creatorhub.core"})
-@MapperScan("com.creatorhub.core.identity.mapper")
+@MapperScan({"com.creatorhub.core.identity.mapper", "com.creatorhub.core.content.mapper"})
 public class CreatorHubApiApplication {
 
     public static void main(String[] args) {

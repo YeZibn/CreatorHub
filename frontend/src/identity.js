@@ -6,7 +6,7 @@ class IdentityError extends Error {
   }
 }
 
-async function request(path, options = {}) {
+export async function request(path, options = {}) {
   let response
   try {
     response = await fetch('/api/v1' + path, {
@@ -27,7 +27,7 @@ async function request(path, options = {}) {
   return payload
 }
 
-async function write(path, method, body) {
+export async function write(path, method, body) {
   const { headerName, token } = await request('/auth/csrf')
   const headers = { [headerName]: token }
   const options = { method, headers }

@@ -33,3 +33,8 @@ mybatis:
 creatorhub:
   identity:
     secure-cookie: ${CREATORHUB_SECURE_COOKIE:false}
+
+logging:
+  level:
+    # MyBatis can include SQL parameters and result rows at DEBUG/TRACE.
+    com.creatorhub.core.content.mapper.DraftMapper: 'OFF'

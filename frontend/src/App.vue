@@ -5,8 +5,13 @@ import {
   Mail, PenLine, UserRound,
 } from 'lucide-vue-next'
 import { errorMessage, identity } from './identity'
+import DraftsWorkspace from './DraftsWorkspace.vue'
 
 const phase = ref('loading')
+const draftRoute = /^#drafts(?:\/([1-9][0-9]*))?$/.exec(window.location.hash)
+const section = ref(draftRoute ? 'drafts' : 'account')
+const draftId = ref(draftRoute?.[1] ?? null)
+const draftsOpened = ref(!!draftRoute)
 const mode = ref('login')
 const busy = ref('')
 const user = ref(null)
@@ -38,6 +43,21 @@ function setGuest(message = '') {
   phase.value = 'guest'
   error.value = ''
   notice.value = message
+}
+
+function setDraftId(id) {
+  draftId.value = id
+  if (section.value === 'drafts') window.history.replaceState(null, '', id ? '#drafts/' + id : '#drafts')
+}
+
+function showSection(next) {
+  section.value = next
+  if (next === 'drafts') {
+    draftsOpened.value = true
+    setDraftId(draftId.value)
+  } else {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  }
 }
 
 async function loadSession() {
@@ -141,6 +161,9 @@ async function logout() {
   busy.value = 'logout'
   try {
     await identity.logout()
+    showSection('account')
+    draftsOpened.value = false
+    draftId.value = null
     setGuest('你已退出登录。')
   } catch (failure) {
     if (failure.status === 401) setGuest('你已退出登录。')
@@ -246,7 +269,13 @@ onMounted(loadSession)
       </div>
     </main>
 
-    <main v-else-if="phase === 'account'" class="account-main" aria-labelledby="account-title">
+    <nav v-if="phase === 'account'" class="workspace-nav" aria-label="创作工作台">
+      <button type="button" :aria-current="section === 'account' ? 'page' : undefined" @click="showSection('account')">账号设置</button>
+      <button type="button" :aria-current="section === 'drafts' ? 'page' : undefined" @click="showSection('drafts')">我的草稿</button>
+    </nav>
+    <DraftsWorkspace v-if="phase === 'account' && draftsOpened" v-show="section === 'drafts'"
+      :initial-id="draftId" @opened="setDraftId" @expired="setGuest('登录已过期，请重新登录。')" />
+    <main v-if="phase === 'account' && section === 'account'" class="account-main" aria-labelledby="account-title">
       <div class="account-heading">
         <h1 id="account-title">账号设置</h1>
         <p>查看登录邮箱，管理展示给其他创作者的昵称。</p>
@@ -283,7 +312,7 @@ onMounted(loadSession)
       </div>
     </main>
 
-    <main v-else class="status-main">
+    <main v-else-if="phase !== 'account' && phase !== 'guest'" class="status-main">
       <div v-if="phase === 'loading'" class="status-card" role="status"><LoaderCircle :size="22" class="spinner" aria-hidden="true" />正在检查登录状态…</div>
       <div v-else class="status-card unavailable">
         <CircleAlert :size="28" aria-hidden="true" />

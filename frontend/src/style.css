@@ -326,3 +326,92 @@ h1, h2, p { margin: 0; }
   .auth-panel { padding-inline: 17px; }
   .sign-out { padding: 0 10px; min-height: 38px; }
 }
+
+.workspace-nav {
+  width: min(100% - 64px, 1160px);
+  margin: 20px auto 0;
+  display: flex;
+  gap: 6px;
+}
+.workspace-nav button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 650;
+}
+.workspace-nav button:hover, .workspace-nav button[aria-current] {
+  color: var(--accent);
+  background: #eee8fa;
+}
+
+.drafts-main {
+  width: min(100% - 64px, 1160px);
+  margin: 0 auto;
+  padding: 34px 0 72px;
+}
+.drafts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.drafts-heading h1 { font-size: clamp(25px, 3vw, 34px); }
+.drafts-grid { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2.5fr); gap: 20px; }
+.drafts-list, .draft-editor {
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: #fff;
+  align-self: start;
+}
+.drafts-list { padding: 22px 14px; }
+.draft-editor { display: grid; gap: 18px; padding: clamp(18px, 3vw, 32px); }
+.drafts-list h2, .draft-editor h2 { font-size: 18px; }
+.drafts-list h2, .drafts-list-feedback { margin: 0 10px 12px; }
+.drafts-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.draft-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.draft-row svg { color: var(--accent); flex: none; }
+.draft-row:hover:not(:disabled), .draft-row[aria-current] { background: #f3eefb; }
+.draft-row span { min-width: 0; }
+.draft-row strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-row time, .drafts-main .muted, .draft-field-heading span { color: var(--muted); font-size: 13px; }
+.draft-more { margin: 14px 10px 0; }
+.draft-editor > button { justify-self: start; }
+.draft-form { display: grid; gap: 20px; }
+.draft-field-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.draft-field-heading .over-limit { color: #9b2e45; }
+.draft-form input, .draft-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ded8e8;
+  border-radius: 9px;
+  background: #fcfbfe;
+  color: inherit;
+  font: inherit;
+}
+.draft-form textarea {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.draft-form input:focus-visible, .draft-form textarea:focus-visible { outline: 2px solid #a98afa; }
+.draft-actions { display: flex; justify-content: flex-end; }
+@media (max-width: 700px) {
+  .workspace-nav, .drafts-main { width: calc(100% - 36px); }
+  .drafts-main { padding-top: 24px; }
+  .drafts-grid { grid-template-columns: minmax(0, 1fr); }
+}
