@@ -7,4 +7,5 @@ export const drafts = {
   get: (id) => request(path + '/' + id),
   create: (input) => write(path, 'POST', input),
   update: (id, input) => write(path + '/' + id, 'PUT', input),
+  publish: (id, version) => write(path + '/' + id + '/publish', 'POST', { version }),
 }

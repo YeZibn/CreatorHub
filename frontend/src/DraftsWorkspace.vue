@@ -1,11 +1,11 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Check, CircleAlert, FileText, Plus } from 'lucide-vue-next'
 import { drafts } from './drafts'
 import { errorMessage } from './identity'
 
 const props = defineProps({ initialId: { type: String, default: null } })
-const emit = defineEmits(['opened', 'expired'])
+const emit = defineEmits(['opened', 'published', 'expired'])
 const items = ref([])
 const nextCursor = ref(null)
 const active = ref(null)
@@ -16,12 +16,17 @@ const listError = ref('')
 const editorError = ref('')
 const notice = ref('')
 const conflict = ref(false)
+const pendingPublish = ref(null)
+let mounted = true
+onUnmounted(() => { mounted = false })
 
 const titleLength = computed(() => Array.from(title.value.trim()).length)
 const bodyLength = computed(() => Array.from(body.value).length)
+const hasUnsavedChanges = computed(() => title.value !== active.value?.title || body.value !== active.value?.body)
 const dateFormat = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
 
 function describe(failure) {
+  if (!mounted) return ''
   if (failure.status === 401) {
     emit('expired')
     return ''
@@ -53,10 +58,12 @@ async function refreshList(append = false) {
 }
 
 function useDraft(draft) {
+  if (!mounted) return
   active.value = draft
   title.value = draft.title
   body.value = draft.body
   conflict.value = false
+  pendingPublish.value = null
   editorError.value = ''
   notice.value = ''
   emit('opened', draft.id)
@@ -82,7 +89,7 @@ async function openDraft(id) {
 }
 
 async function save() {
-  if (busy.value || conflict.value || !active.value) return
+  if (busy.value || conflict.value || pendingPublish.value || !active.value) return
   editorError.value = ''
   notice.value = ''
   if ((!title.value.trim() && !body.value.trim()) || titleLength.value > 200 || bodyLength.value > 20_000) {
@@ -103,6 +110,45 @@ async function save() {
     if (failure.code === 'CONTENT_VERSION_CONFLICT') {
       conflict.value = true
       editorError.value = '草稿已在其他页面更新。当前输入仍保留，重新加载将以服务器版本替换它。'
+    } else {
+      editorError.value = describe(failure)
+    }
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function publish() {
+  if (busy.value || conflict.value || !active.value?.id) return
+  editorError.value = ''
+  notice.value = ''
+  if (!pendingPublish.value && hasUnsavedChanges.value) {
+    editorError.value = '请先保存当前修改，再发布草稿。'
+    return
+  }
+
+  const attempt = pendingPublish.value ?? { id: active.value.id, version: active.value.version }
+  busy.value = 'publish'
+  try {
+    const article = await drafts.publish(attempt.id, attempt.version)
+    if (!mounted) return
+    pendingPublish.value = null
+    active.value = null
+    items.value = items.value.filter((item) => item.id !== article.id)
+    emit('published', article.id)
+    await loadList()
+  } catch (failure) {
+    if (!mounted) return
+    if (failure.status === 0 || failure.status >= 500 || failure.code === 'INVALID_RESPONSE') {
+      pendingPublish.value = attempt
+      editorError.value = '暂未确认发布结果。可用同一版本重试发布。'
+    } else if (failure.code === 'CONTENT_VERSION_CONFLICT') {
+      pendingPublish.value = null
+      conflict.value = true
+      editorError.value = '草稿版本已变化。当前输入仍保留，请重新加载确认最新状态。'
+    } else if (failure.code === 'INVALID_REQUEST') {
+      pendingPublish.value = null
+      editorError.value = '发布前，请确认已保存的标题和正文都包含非空白字符。'
     } else {
       editorError.value = describe(failure)
     }
@@ -159,13 +205,13 @@ onMounted(async () => {
         <p v-if="notice" class="feedback success" role="status"><Check :size="18" aria-hidden="true" />{{ notice }}</p>
         <button v-if="conflict" class="outline-button" type="button" :disabled="!!busy"
           @click="openDraft(active.id)">重新加载最新版本</button>
-        <form v-if="active" class="draft-form" :aria-busy="busy === 'save'" @submit.prevent="save">
+        <form v-if="active" class="draft-form" :aria-busy="busy === 'save' || busy === 'publish'" @submit.prevent="save">
           <div class="field">
             <div class="draft-field-heading">
               <label for="draft-title">标题</label>
               <span id="draft-title-count" :class="{ 'over-limit': titleLength > 200 }">{{ titleLength }} / 200</span>
             </div>
-            <input id="draft-title" v-model="title" aria-describedby="draft-title-count" :disabled="!!busy"
+            <input id="draft-title" v-model="title" aria-describedby="draft-title-count" :disabled="!!busy || !!pendingPublish"
               placeholder="给草稿取个标题" />
           </div>
           <div class="field">
@@ -174,11 +220,14 @@ onMounted(async () => {
               <span id="draft-body-count" :class="{ 'over-limit': bodyLength > 20_000 }">{{ bodyLength }} / 20,000</span>
             </div>
             <textarea id="draft-body" v-model="body" rows="14" aria-describedby="draft-body-count"
-              :disabled="!!busy" placeholder="在这里开始写作"></textarea>
+              :disabled="!!busy || !!pendingPublish" placeholder="在这里开始写作"></textarea>
           </div>
           <div class="draft-actions">
-            <button class="primary-button" type="submit" :disabled="!!busy || conflict">
+            <button class="primary-button" type="submit" :disabled="!!busy || conflict || !!pendingPublish">
               {{ busy === 'save' ? '正在保存…' : '保存草稿' }}
+            </button>
+            <button v-if="active.id" class="outline-button" type="button" :disabled="!!busy || conflict" @click="publish">
+              {{ busy === 'publish' ? '正在发布…' : pendingPublish ? '重试发布' : '发布' }}
             </button>
           </div>
         </form>

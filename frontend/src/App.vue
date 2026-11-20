@@ -1,17 +1,19 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   ArrowRight, Check, CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, LogOut,
   Mail, PenLine, UserRound,
 } from 'lucide-vue-next'
 import { errorMessage, identity } from './identity'
 import DraftsWorkspace from './DraftsWorkspace.vue'
+import ArticleDetail from './ArticleDetail.vue'
 
 const phase = ref('loading')
-const draftRoute = /^#drafts(?:\/([1-9][0-9]*))?$/.exec(window.location.hash)
-const section = ref(draftRoute ? 'drafts' : 'account')
-const draftId = ref(draftRoute?.[1] ?? null)
-const draftsOpened = ref(!!draftRoute)
+const section = ref('account')
+const articleId = ref(null)
+const draftId = ref(null)
+const draftsOpened = ref(false)
+const draftsKey = ref(0)
 const mode = ref('login')
 const busy = ref('')
 const user = ref(null)
@@ -58,6 +60,31 @@ function showSection(next) {
   } else {
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
   }
+}
+
+function syncRoute() {
+  const article = /^#articles\/([1-9][0-9]*)$/.exec(window.location.hash)
+  const draft = /^#drafts(?:\/([1-9][0-9]*))?$/.exec(window.location.hash)
+  if (article) {
+    articleId.value = article[1]
+    section.value = 'article'
+  } else if (draft) {
+    const id = draft[1] ?? null
+    if (id !== draftId.value) draftsKey.value++
+    draftId.value = id
+    draftsOpened.value = true
+    section.value = 'drafts'
+  } else {
+    section.value = 'account'
+  }
+}
+
+function showPublishedArticle(id) {
+  draftId.value = null
+  if (phase.value !== 'account' || section.value !== 'drafts') return
+  articleId.value = id
+  section.value = 'article'
+  window.history.replaceState(null, '', '#articles/' + id)
 }
 
 async function loadSession() {
@@ -173,7 +200,12 @@ async function logout() {
   }
 }
 
-onMounted(loadSession)
+syncRoute()
+onMounted(() => {
+  window.addEventListener('hashchange', syncRoute)
+  loadSession()
+})
+onUnmounted(() => window.removeEventListener('hashchange', syncRoute))
 </script>
 
 <template>
@@ -274,7 +306,10 @@ onMounted(loadSession)
       <button type="button" :aria-current="section === 'drafts' ? 'page' : undefined" @click="showSection('drafts')">我的草稿</button>
     </nav>
     <DraftsWorkspace v-if="phase === 'account' && draftsOpened" v-show="section === 'drafts'"
-      :initial-id="draftId" @opened="setDraftId" @expired="setGuest('登录已过期，请重新登录。')" />
+      :key="draftsKey" :initial-id="draftId" @opened="setDraftId" @published="showPublishedArticle"
+      @expired="setGuest('登录已过期，请重新登录。')" />
+    <ArticleDetail v-if="phase === 'account' && section === 'article'" :key="articleId" :id="articleId"
+      @expired="setGuest('登录已过期，请重新登录。')" />
     <main v-if="phase === 'account' && section === 'account'" class="account-main" aria-labelledby="account-title">
       <div class="account-heading">
         <h1 id="account-title">账号设置</h1>
