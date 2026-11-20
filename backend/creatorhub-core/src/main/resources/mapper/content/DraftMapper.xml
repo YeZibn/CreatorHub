@@ -64,4 +64,15 @@
         FROM content
         WHERE id = #{id} AND status = 'PUBLISHED'
     </select>
+
+    <select id="listPublished" resultType="com.creatorhub.core.content.entity.PublishedArticleSummary">
+        SELECT id, title, published_at
+        FROM content
+        WHERE author_id = #{authorId} AND status = 'PUBLISHED'
+        <if test="beforeTime != null">
+            AND (published_at &lt; #{beforeTime} OR (published_at = #{beforeTime} AND id &lt; #{beforeId}))
+        </if>
+        ORDER BY published_at DESC, id DESC
+        LIMIT #{pageSize}
+    </select>
 </mapper>

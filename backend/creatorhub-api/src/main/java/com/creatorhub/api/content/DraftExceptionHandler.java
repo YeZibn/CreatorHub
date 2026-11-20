@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-@RestControllerAdvice(assignableTypes = {DraftController.class, ArticleController.class})
+@RestControllerAdvice(assignableTypes = {DraftController.class, ArticleController.class, MyArticlesController.class})
 public class DraftExceptionHandler {
     @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class,
             MethodArgumentTypeMismatchException.class})

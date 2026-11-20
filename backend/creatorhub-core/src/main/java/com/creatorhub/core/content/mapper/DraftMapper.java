@@ -7,6 +7,7 @@ import com.creatorhub.core.content.entity.Draft;
 import com.creatorhub.core.content.entity.DraftSummary;
 import com.creatorhub.core.content.entity.NewDraft;
 import com.creatorhub.core.content.entity.PublishedArticle;
+import com.creatorhub.core.content.entity.PublishedArticleSummary;
 import com.creatorhub.core.content.entity.PublishableContent;
 import org.apache.ibatis.annotations.Param;
 
@@ -28,4 +29,7 @@ public interface DraftMapper {
     int publish(@Param("authorId") long authorId, @Param("id") long id, @Param("version") long version);
 
     PublishedArticle findPublished(@Param("id") long id);
+
+    List<PublishedArticleSummary> listPublished(@Param("authorId") long authorId, @Param("pageSize") int pageSize,
+                                                @Param("beforeTime") LocalDateTime beforeTime, @Param("beforeId") Long beforeId);
 }

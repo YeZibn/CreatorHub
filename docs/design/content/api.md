@@ -101,3 +101,27 @@
 | `404` | `DRAFT_NOT_FOUND` | 目标草稿不存在或属于其他作者 |
 | `404` | `ARTICLE_NOT_FOUND` | 阅读目标不存在或尚未发布 |
 | `409` | `CONTENT_VERSION_CONFLICT` | 发布请求提交了过期版本，或重复请求使用的版本不是首次发布版本 |
+
+## 本人已发布文章列表
+
+已实现。个人工作台的「我发布的」调用 `GET /api/v1/me/articles`。接口要求登录，每页均从当前会话取得作者 ID，只接受 `limit` 和 `cursor` 两个查询参数。成功响应为 `200`，使用 `Cache-Control: no-store`。
+
+- `limit` 默认 20，范围为 1–50。首页省略 `cursor`，续页原样传回本列表的 `nextCursor`。
+- 排序为 `publishedAt DESC, id DESC`，同一毫秒按 ID 数值降序。游标是 URL 安全的不透明字符串，包含列表类型、上一页最后一项的发布时间（UTC 毫秒）和 ID。游标只限定分页位置，查询范围始终以会话为准。
+- 列表项包含十进制字符串 `id`、`title` 和 UTC ISO 8601 格式的 `publishedAt`。正文按已有文章详情接口读取。
+- 最后一页的 `nextCursor` 为 `null`。没有符合条件的文章时返回 `{"items":[],"nextCursor":null}`。
+
+```json
+{
+  "items": [
+    {"id": "42", "title": "春日创作手记", "publishedAt": "2026-11-20T08:00:00.123Z"}
+  ],
+  "nextCursor": null
+}
+```
+
+| 状态 | 错误码 | 触发条件 |
+| --- | --- | --- |
+| `400` | `INVALID_REQUEST` | 参数未知或重复、条数无效，或游标格式、取值或列表类型无效 |
+| `401` | `UNAUTHENTICATED` | 登录会话缺失、过期或已注销 |
+| `503` | `SESSION_UNAVAILABLE` | 无法访问服务端会话存储 |

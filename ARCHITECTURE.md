@@ -20,4 +20,16 @@ MySQL 保存业务数据。Redis 保存登录会话，后续也承载缓存和�
 | 缓存 | 热点缓存重建与失效一致性 | 待细化 |
 | Agent | 在任务授权范围内检索和保存草稿 | 后续阶段 |
 
-身份模块提供服务端确认的 `userId`，内容和社交模块据此检查资源归属。下一阶段先完成[文章发布与按 ID 阅读](docs/design/content/design.md#文章发布与阅读)。私有草稿与关注关系均保存在 MySQL，当前 Canal 白名单只包含验证表。随后再设计发布事件和 Feed 受众规则，详见[社交模块的发布分发与 CDC](docs/design/social/design.md#发布分发与-cdc)。
+身份模块提供服务端确认的 `userId`，内容和社交模块据此检查资源归属。[文章发布与按 ID 阅读](docs/design/content/design.md#文章发布与阅读)已交付。下一阶段补齐个人工作台，随后再设计发布事件和 Feed 受众规则。[社交模块的发布分发与 CDC](docs/design/social/design.md#发布分发与-cdc)
+
+## 个人工作台
+
+个人工作台面向当前登录用户。各入口使用对应模块的接口，服务端按每次请求的会话限定本人数据。
+
+| 入口 | 后端接口 | 状态 |
+| --- | --- | --- |
+| 个人主页 | [本人资料](docs/design/identity/api.md#接口)，`GET /api/v1/me` | 复用现有接口 |
+| 我的粉丝 | [粉丝列表](docs/design/social/api.md#接口)，`GET /api/v1/me/followers` | 复用现有接口 |
+| 我关注的人 | [关注列表](docs/design/social/api.md#接口)，`GET /api/v1/me/following` | 复用现有接口 |
+| 我的草稿箱 | [草稿接口](docs/design/content/api.md#接口)，列表为 `GET /api/v1/content/drafts` | 复用现有接口 |
+| 我发布的 | [本人已发布文章列表](docs/design/content/api.md#本人已发布文章列表)，`GET /api/v1/me/articles` | 后端已实现并通过本地验收 |

@@ -7,6 +7,7 @@ import com.creatorhub.core.content.entity.Draft;
 import com.creatorhub.core.content.entity.DraftSummary;
 import com.creatorhub.core.content.entity.NewDraft;
 import com.creatorhub.core.content.entity.PublishedArticle;
+import com.creatorhub.core.content.entity.PublishedArticleSummary;
 import com.creatorhub.core.content.entity.PublishableContent;
 import com.creatorhub.core.content.mapper.DraftMapper;
 import org.springframework.stereotype.Service;
@@ -69,6 +70,14 @@ public class DraftService {
         if (article == null) throw new ArticleNotFound();
         return article;
     }
+
+    public PublishedPage listPublished(long authorId, int limit, LocalDateTime beforeTime, Long beforeId) {
+        List<PublishedArticleSummary> rows = drafts.listPublished(authorId, limit + 1, beforeTime, beforeId);
+        boolean hasMore = rows.size() > limit;
+        return new PublishedPage(hasMore ? rows.subList(0, limit) : rows, hasMore);
+    }
+
+    public record PublishedPage(List<PublishedArticleSummary> items, boolean hasMore) {}
 
     private static boolean containsNonWhitespace(String value) {
         return value.codePoints().anyMatch(
