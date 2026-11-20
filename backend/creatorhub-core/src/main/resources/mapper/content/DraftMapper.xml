@@ -39,4 +39,29 @@
         WHERE <include refid="ownedDraft"/>
         FOR SHARE
     </select>
+
+    <select id="findForUpdate" resultType="com.creatorhub.core.content.entity.PublishableContent">
+        SELECT id, author_id, status, title, body_markdown AS body, version, published_at
+        FROM content
+        WHERE id = #{id} AND author_id = #{authorId}
+        FOR UPDATE
+    </select>
+
+    <update id="publish">
+        UPDATE content
+        SET status = 'PUBLISHED',
+            published_at = CURRENT_TIMESTAMP(3),
+            updated_at = CURRENT_TIMESTAMP(3),
+            version = version + 1
+        WHERE id = #{id}
+          AND author_id = #{authorId}
+          AND status = 'DRAFT'
+          AND version = #{version}
+    </update>
+
+    <select id="findPublished" resultType="com.creatorhub.core.content.entity.PublishedArticle">
+        SELECT id, author_id, title, body_markdown AS body, version, published_at
+        FROM content
+        WHERE id = #{id} AND status = 'PUBLISHED'
+    </select>
 </mapper>

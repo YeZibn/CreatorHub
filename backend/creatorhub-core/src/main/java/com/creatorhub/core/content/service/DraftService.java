@@ -6,6 +6,8 @@ import java.util.List;
 import com.creatorhub.core.content.entity.Draft;
 import com.creatorhub.core.content.entity.DraftSummary;
 import com.creatorhub.core.content.entity.NewDraft;
+import com.creatorhub.core.content.entity.PublishedArticle;
+import com.creatorhub.core.content.entity.PublishableContent;
 import com.creatorhub.core.content.mapper.DraftMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,50 @@ public class DraftService {
     }
 
     @Transactional
+    public PublishedArticle publish(long authorId, long id, long requestedVersion) {
+        PublishableContent content = drafts.findForUpdate(authorId, id);
+        if (content == null) throw new NotFound();
+
+        if ("PUBLISHED".equals(content.status())) {
+            if (requestedVersion < 0xffff_ffffL && content.version() == requestedVersion + 1
+                    && content.publishedAt() != null) {
+                return publishedArticle(content);
+            }
+            throw new VersionConflict();
+        }
+
+        if (!"DRAFT".equals(content.status())) throw new NotFound();
+        if (content.version() != requestedVersion) throw new VersionConflict();
+        if (!containsNonWhitespace(content.title()) || !containsNonWhitespace(content.body())) {
+            throw new InvalidForPublishing();
+        }
+        if (requestedVersion == 0xffff_ffffL || drafts.publish(authorId, id, requestedVersion) != 1) {
+            throw new VersionConflict();
+        }
+
+        PublishedArticle article = drafts.findPublished(id);
+        if (article == null) throw new IllegalStateException("Published content disappeared in its transaction");
+        return article;
+    }
+
+    public PublishedArticle getPublished(long id) {
+        PublishedArticle article = drafts.findPublished(id);
+        if (article == null) throw new ArticleNotFound();
+        return article;
+    }
+
+    private static boolean containsNonWhitespace(String value) {
+        return value.codePoints().anyMatch(
+                codePoint -> !Character.isWhitespace(codePoint)
+                        && !Character.isSpaceChar(codePoint) && codePoint != 0x85);
+    }
+
+    private static PublishedArticle publishedArticle(PublishableContent content) {
+        return new PublishedArticle(content.id(), content.authorId(), content.title(), content.body(),
+                content.version(), content.publishedAt());
+    }
+
+    @Transactional
     public Draft update(long authorId, long id, long version, String title, String body) {
         if (drafts.update(authorId, id, version, title, body) == 1) {
             return get(authorId, id);
@@ -48,4 +94,8 @@ public class DraftService {
     public static final class NotFound extends RuntimeException {}
 
     public static final class VersionConflict extends RuntimeException {}
+
+    public static final class InvalidForPublishing extends RuntimeException {}
+
+    public static final class ArticleNotFound extends RuntimeException {}
 }

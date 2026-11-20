@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-@RestControllerAdvice(assignableTypes = DraftController.class)
+@RestControllerAdvice(assignableTypes = {DraftController.class, ArticleController.class})
 public class DraftExceptionHandler {
     @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class,
             MethodArgumentTypeMismatchException.class})
@@ -26,6 +26,16 @@ public class DraftExceptionHandler {
     @ExceptionHandler(DraftService.VersionConflict.class)
     ResponseEntity<IdentityError.Body> versionConflict() {
         return error(HttpStatus.CONFLICT, "CONTENT_VERSION_CONFLICT", "Draft version conflict");
+    }
+
+    @ExceptionHandler(DraftService.InvalidForPublishing.class)
+    ResponseEntity<IdentityError.Body> invalidForPublishing() {
+        return invalidRequest();
+    }
+
+    @ExceptionHandler(DraftService.ArticleNotFound.class)
+    ResponseEntity<IdentityError.Body> articleNotFound() {
+        return error(HttpStatus.NOT_FOUND, "ARTICLE_NOT_FOUND", "Article not found");
     }
 
     private ResponseEntity<IdentityError.Body> error(HttpStatus status, String code, String message) {

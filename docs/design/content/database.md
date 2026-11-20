@@ -4,20 +4,23 @@
 
 ## 数据归属与字段
 
-Flyway V2 创建 MySQL InnoDB 表 `content`，字符集为 `utf8mb4`。内容模块拥有此表，作者外键指向[身份模块的账号表](../identity/database.md#数据归属与关系)。
+Flyway V2 创建 MySQL InnoDB 表 `content`，Flyway V4 加入发布字段并允许发布状态。内容模块拥有此表，作者外键指向[身份模块的账号表](../identity/database.md#数据归属与关系)。
 
 | 字段 | 类型和约束 | 用途 |
 | --- | --- | --- |
 | `id` | `BIGINT NOT NULL AUTO_INCREMENT`，主键 | 内容标识，接口返回字符串 |
 | `author_id` | `BIGINT NOT NULL`，引用 `user_account.id`，`ON DELETE RESTRICT` | 内容作者，从会话身份取得 |
-| `status` | `VARCHAR(16) NOT NULL DEFAULT 'DRAFT'`，`CHECK (status = 'DRAFT')` | 当前阶段的持久化状态 |
+| `status` | `VARCHAR(16) NOT NULL DEFAULT 'DRAFT'` | `DRAFT` 或 `PUBLISHED` |
 | `title` | `VARCHAR(200) NOT NULL` | 去除首尾空白后的标题，允许空字符串 |
 | `body_markdown` | `MEDIUMTEXT NOT NULL` | 原样保存正文，接口限制为 20,000 个 Unicode 码点 |
+| `published_at` | `DATETIME(3) NULL` | 发布时由 MySQL 记录的首次发布时间，草稿必须为空 |
 | `version` | `INT UNSIGNED NOT NULL DEFAULT 1` | 乐观锁版本，Java 用 `long` 表示 |
 | `created_at` | `DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)` | 创建时间 |
 | `updated_at` | `DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)` | 最后一次成功保存时间，修改时显式赋值 |
 
-数据库连接使用 UTC 会话。在同一条插入语句中由数据库记录创建和修改时间。修改只更新 `updated_at`，毫秒级排序相同时用内容 ID 排序。
+`chk_content_state_published_at` 强制 `DRAFT` 对应空 `published_at`，`PUBLISHED` 对应非空 `published_at`。其他状态与两种状态各自不匹配的发布时间均会被拒绝。
+
+数据库连接使用 UTC 会话。在同一条插入语句中由数据库记录创建和修改时间。草稿修改更新 `updated_at`，保留 `created_at`。毫秒级排序相同时用内容 ID 排序。
 
 ## 索引与分页
 
@@ -56,6 +59,37 @@ WHERE id = ?
 
 ## 迁移顺序与本地数据
 
-先按[内容模块的 CDC 要求](design.md#作者隔离与-cdc)应用并确认白名单，再在已完成身份迁移的数据库上验证 V2。验收覆盖默认状态和版本、外键拒绝不存在的作者、毫秒精度和联合索引。
+在完成身份与关注迁移的数据库上按 V2、V3、V4 顺序应用。草稿、发布和关注阶段都先确认[Canal 白名单](design.md#作者隔离与-cdc)。验收覆盖默认状态和版本、外键拒绝不存在的作者、毫秒精度、状态与发布时间约束和联合索引。
 
-用空库验证完整迁移链，或在已停在 V1 的测试库中验证 V2 增量迁移。复用已有数据库时，以 Flyway 已记录的版本及校验和为准。
+用空库验证完整迁移链，或在已停在 V3 的测试库中验证 V4 增量迁移。复用已有数据库时，以 Flyway 已记录的版本及校验和为准。
+
+## 发布事务与重试
+
+发布与阅读使用同一条 `content` 行，沿用原 ID、作者和当前版本。Service 在短事务中按作者和 ID 锁定行，防止草稿保存与发布对同一旧版本同时成功。
+
+```sql
+SELECT id, author_id, status, title, body_markdown, version, published_at
+FROM content
+WHERE id = ? AND author_id = ?
+FOR UPDATE;
+```
+
+不存在或不属于当前作者时返回 `404 DRAFT_NOT_FOUND`。若为 `DRAFT`，事务先检查请求版本和已保存的标题、正文，然后执行状态条件更新并记录首次发布时间、递增版本。
+
+```sql
+UPDATE content
+SET status = 'PUBLISHED',
+    published_at = CURRENT_TIMESTAMP(3),
+    updated_at = CURRENT_TIMESTAMP(3),
+    version = version + 1
+WHERE id = ?
+  AND author_id = ?
+  AND status = 'DRAFT'
+  AND version = ?;
+```
+
+草稿编辑若先提交，发布锁定行后读到新版本，旧版本请求返回 `409 CONTENT_VERSION_CONFLICT`。发布若先提交，等待中的草稿更新状态条件不再匹配，草稿 Service 返回 `404 DRAFT_NOT_FOUND`。
+
+如果锁定的记录已是 `PUBLISHED`，仅当请求版本比记录当前版本小一时才作为同版本重试返回已有文章；响应沿用原版本和首次发布时间，不再写入。其他版本返回 `409 CONTENT_VERSION_CONFLICT`。此规则基于本阶段发布后不可编辑、下架或重新发布的约定。
+
+文章详情按主键定位并检查 `status = 'PUBLISHED'`。当前仅按 ID 读取，可沿用主键。其他查询继续使用原联合索引。Canal 白名单只含验证表，内容行更新不会产生 Kafka 事件。

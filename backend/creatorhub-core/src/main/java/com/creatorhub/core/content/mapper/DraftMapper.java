@@ -6,6 +6,8 @@ import java.util.List;
 import com.creatorhub.core.content.entity.Draft;
 import com.creatorhub.core.content.entity.DraftSummary;
 import com.creatorhub.core.content.entity.NewDraft;
+import com.creatorhub.core.content.entity.PublishedArticle;
+import com.creatorhub.core.content.entity.PublishableContent;
 import org.apache.ibatis.annotations.Param;
 
 public interface DraftMapper {
@@ -20,4 +22,10 @@ public interface DraftMapper {
                @Param("title") String title, @Param("body") String body);
 
     Long findVersionForShare(@Param("authorId") long authorId, @Param("id") long id);
+
+    PublishableContent findForUpdate(@Param("authorId") long authorId, @Param("id") long id);
+
+    int publish(@Param("authorId") long authorId, @Param("id") long id, @Param("version") long version);
+
+    PublishedArticle findPublished(@Param("id") long id);
 }
